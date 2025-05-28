@@ -31,16 +31,16 @@ mjData* mj_data = mj_makeData(mj_model);
 
 int main(int argc, char **argv) {
     // initialize classes
-    UIctr uiController(mj_model,mj_data);   // UI control for Mujoco
-    MJ_Interface mj_interface(mj_model, mj_data); // data interface for Mujoco
-    Pin_KinDyn kinDynSolver("../models/AzureLoong.urdf"); // kinematics and dynamics solver
-    DataBus RobotState(kinDynSolver.model_nv); // data bus
+    UIctr uiController(mj_model,mj_data);   // UI control for Mujoco，用来控制mujoco的窗口时间和渲染等
+    MJ_Interface mj_interface(mj_model, mj_data); // data interface for Mujoco，用来从mujoco获取数据
+    Pin_KinDyn kinDynSolver("../models/AzureLoong.urdf"); // kinematics and dynamics solver，加载的机器人模型，进行运动学和动力学矩阵计算
+    DataBus RobotState(kinDynSolver.model_nv); // data bus，传递数据
     WBC_priority WBC_solv(kinDynSolver.model_nv, 18, 22, 0.7, mj_model->opt.timestep); // WBC solver
     MPC MPC_solv(dt_200Hz);  // mpc controller
-    GaitScheduler gaitScheduler(0.25, mj_model->opt.timestep); // gait scheduler
-    PVT_Ctr pvtCtr(mj_model->opt.timestep,"../common/joint_ctrl_config.json");// PVT joint control
-    FootPlacement footPlacement; // foot-placement planner
-    JoyStickInterpreter jsInterp(mj_model->opt.timestep); // desired baselink velocity generator
+    GaitScheduler gaitScheduler(0.25, mj_model->opt.timestep); // gait scheduler，步态规划
+    PVT_Ctr pvtCtr(mj_model->opt.timestep,"../common/joint_ctrl_config.json");// PVT joint control，电机控制
+    FootPlacement footPlacement; // foot-placement planner，步态规划
+    JoyStickInterpreter jsInterp(mj_model->opt.timestep); // desired baselink velocity generator，用来接收手柄指令，包含位置，朝向，速度，角速度
     DataLogger logger("../record/datalog.log"); // data logger
 
     // initialize UI: GLFW
