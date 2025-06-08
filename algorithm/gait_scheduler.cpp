@@ -209,7 +209,7 @@ void GaitScheduler::step()
 	}
 
 }
-
+分析以上代码，添加注释
 void GaitScheduler::start(){
 	start_walk = true;
 }

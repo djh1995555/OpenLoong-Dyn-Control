@@ -66,7 +66,7 @@ void FootPlacement::getSwingPos()
 
     //    posDes_W(2)=STPos_W(2)-0.04;
     posDes_W(2) = base_pos(2) - legLength + zOff_W;
-
+    
     double xOff_W(0), yOff_W(0);
     if (legState == DataBus::LSt)
     {

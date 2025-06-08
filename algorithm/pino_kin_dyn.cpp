@@ -8,36 +8,40 @@ Feel free to use in any purpose, and cite OpenLoong-Dynamics-Control in any styl
 #include "pino_kin_dyn.h"
 
 #include <utility>
-
 Pin_KinDyn::Pin_KinDyn(std::string urdf_pathIn)
 {
     pinocchio::JointModelFreeFlyer root_joint;
-    pinocchio::urdf::buildModel(urdf_pathIn, root_joint, model_biped);
-    pinocchio::urdf::buildModel(urdf_pathIn, model_biped_fixed);
+    pinocchio::urdf::buildModel(urdf_pathIn, root_joint, model_biped);  // 浮动基座
+    pinocchio::urdf::buildModel(urdf_pathIn, model_biped_fixed);    // 固定基座
     data_biped = pinocchio::Data(model_biped);
     data_biped_fixed = pinocchio::Data(model_biped_fixed);
-    model_nv = model_biped.nv;
-    J_l = Eigen::MatrixXd::Zero(6, model_nv);
-    J_r = Eigen::MatrixXd::Zero(6, model_nv);
-    J_l_body = Eigen::MatrixXd::Zero(6, model_biped_fixed.nv);
-    J_r_body = Eigen::MatrixXd::Zero(6, model_biped_fixed.nv);
-    J_hd_l = Eigen::MatrixXd::Zero(6, model_nv);
-    J_hd_r = Eigen::MatrixXd::Zero(6, model_nv);
-    J_base = Eigen::MatrixXd::Zero(6, model_nv);
-    J_hip_link = Eigen::MatrixXd::Zero(6, model_nv);
-    dJ_l = Eigen::MatrixXd::Zero(6, model_nv);
-    dJ_r = Eigen::MatrixXd::Zero(6, model_nv);
-    dJ_hd_l = Eigen::MatrixXd::Zero(6, model_nv);
-    dJ_hd_r = Eigen::MatrixXd::Zero(6, model_nv);
-    dJ_base = Eigen::MatrixXd::Zero(6, model_nv);
-    q.setZero();
-    dq.setZero();
-    ddq.setZero();
-    Rcur.setIdentity();
-    dyn_M = Eigen::MatrixXd::Zero(model_nv, model_nv);
-    dyn_M_inv = Eigen::MatrixXd::Zero(model_nv, model_nv);
-    dyn_C = Eigen::MatrixXd::Zero(model_nv, model_nv);
-    dyn_G = Eigen::MatrixXd::Zero(model_nv, 1);
+    model_nv = model_biped.nv;  // 速度变量个数
+    J_l = Eigen::MatrixXd::Zero(6, model_nv);   // 左踝关节浮动基座雅可比矩阵
+    J_r = Eigen::MatrixXd::Zero(6, model_nv);   // 右踝关节浮动基座雅可比矩阵
+    J_hd_l = Eigen::MatrixXd::Zero(6, model_nv);    // 左手部关节固定基座雅可比矩阵
+    J_hd_r = Eigen::MatrixXd::Zero(6, model_nv);    // 左手部关节固定基座雅可比矩阵
+    J_base = Eigen::MatrixXd::Zero(6, model_nv);    // 躯干固定基座雅可比矩阵
+
+    dJ_l = Eigen::MatrixXd::Zero(6, model_nv);  // 左踝关节浮动基座雅可比矩阵变化量
+    dJ_r = Eigen::MatrixXd::Zero(6, model_nv);  // 右踝关节浮动基座雅可比矩阵变化量
+    dJ_hd_l = Eigen::MatrixXd::Zero(6, model_nv);   // 左手部关节固定基座雅可比矩阵变化量
+    dJ_hd_r = Eigen::MatrixXd::Zero(6, model_nv);   // 左手部关节固定基座雅可比矩阵变化量
+    dJ_base = Eigen::MatrixXd::Zero(6, model_nv);   // 躯干固定基座雅可比矩阵变化量
+
+    J_hip_link = Eigen::MatrixXd::Zero(6, model_nv);    // 髋关节固定基座雅可比矩阵
+
+    J_l_body = Eigen::MatrixXd::Zero(6, model_biped_fixed.nv);   // 左踝关节固定基座雅可比矩阵
+    J_r_body = Eigen::MatrixXd::Zero(6, model_biped_fixed.nv);   // 右踝关节固定基座雅可比矩阵
+
+    q.setZero();    // 关节位置
+    dq.setZero();   // 关节速度
+    ddq.setZero();  // 关节加速度
+
+    Rcur.setIdentity(); 
+    dyn_M = Eigen::MatrixXd::Zero(model_nv, model_nv);  // 广义质量矩阵
+    dyn_M_inv = Eigen::MatrixXd::Zero(model_nv, model_nv);  // 广义质量矩阵逆
+    dyn_C = Eigen::MatrixXd::Zero(model_nv, model_nv);  // 科氏力矩阵
+    dyn_G = Eigen::MatrixXd::Zero(model_nv, 1); // 重力项
 
     // get joint index for Pinocchio Lib, need to redefined the joint name for new model
     r_ankle_joint = model_biped.getJointId("J_ankle_r_roll");
@@ -94,25 +98,31 @@ void Pin_KinDyn::dataBusWrite(DataBus &robotState)
 {
     robotState.J_l = J_l;
     robotState.J_r = J_r;
-    robotState.J_base = J_base;
     robotState.dJ_l = dJ_l;
     robotState.dJ_r = dJ_r;
+
     robotState.J_hd_l = J_hd_l;
     robotState.J_hd_r = J_hd_r;
     robotState.dJ_hd_l = dJ_hd_l;
     robotState.dJ_hd_r = dJ_hd_r;
+
+    robotState.J_base = J_base;
     robotState.dJ_base = dJ_base;
     robotState.J_hip_link = J_hip_link;
+
     robotState.fe_l_pos_W = fe_l_pos;
     robotState.fe_r_pos_W = fe_r_pos;
     robotState.fe_l_pos_L = fe_l_pos_body;
     robotState.fe_r_pos_L = fe_r_pos_body;
+
     robotState.fe_l_rot_W = fe_l_rot;
     robotState.fe_r_rot_W = fe_r_rot;
     robotState.fe_l_rot_L = fe_l_rot_body;
     robotState.fe_r_rot_L = fe_r_rot_body;
+
     robotState.fe_l_vel_L = fe_l_vel_body;
     robotState.fe_r_vel_L = fe_r_vel_body;
+    
     robotState.hip_r_pos_L = hip_r_pos_body;
     robotState.hip_l_pos_L = hip_l_pos_body;
     robotState.hip_r_pos_W = hip_r_pos;
@@ -171,6 +181,7 @@ void Pin_KinDyn::computeJ_dJ()
     pinocchio::getJointJacobianTimeVariation(model_biped, data_biped, r_hand_joint, pinocchio::LOCAL_WORLD_ALIGNED, dJ_hd_r);
     pinocchio::getJointJacobianTimeVariation(model_biped, data_biped, l_hand_joint, pinocchio::LOCAL_WORLD_ALIGNED, dJ_hd_l);
     pinocchio::getJointJacobianTimeVariation(model_biped, data_biped, base_joint, pinocchio::LOCAL_WORLD_ALIGNED, dJ_base);
+    // oMi是对应joint的placement，forwardKinematics计算得到的
     fe_l_pos = data_biped.oMi[l_ankle_joint].translation();
     fe_l_rot = data_biped.oMi[l_ankle_joint].rotation();
     hip_l_pos = data_biped.oMi[l_hip_joint].translation();
@@ -228,6 +239,7 @@ void Pin_KinDyn::computeJ_dJ()
     fe_r_vel_body = (J_r_body * dq_fixed).block(0, 0, 3, 1);
 }
 
+// 四元数迭代更新
 Eigen::Quaterniond Pin_KinDyn::intQuat(const Eigen::Quaterniond &quat, const Eigen::Matrix<double, 3, 1> &w)
 {
     Eigen::Matrix3d Rcur = quat.normalized().toRotationMatrix();
@@ -327,6 +339,7 @@ void Pin_KinDyn::computeDyn()
     dyn_G = Mpj_inv * dyn_G;
     dyn_Non = Mpj_inv * dyn_Non;
 }
+
 
 // Inverse kinematics for leg posture. Note: the Rdes and Pdes are both w.r.t the baselink coordinate in body frame!
 Pin_KinDyn::IkRes

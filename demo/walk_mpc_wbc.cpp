@@ -193,8 +193,8 @@ int main(int argc, char **argv) {
                         1.0, 1.0, 1.0,//fr
                         1.0, 1.0, 1.0,1.0;
                 MPC_solv.set_weight(1e-6, L_diag, K_diag);
-
-                Eigen::VectorXd pos_des = kinDynSolver.integrateDIY(RobotState.q, RobotState.wbc_delta_q_final);
+                
+                Eigen::VectorXd pos_des = kinDynSolver.integrateDIY(RobotState.q, RobotState.wbc_delta_q_final); // 通过WBC求出关节变量后，也要代进模型，做迭代更新状态
                 RobotState.motors_pos_des = eigen2std(pos_des.block(7, 0, model_nv - 6, 1));
                 RobotState.motors_vel_des = eigen2std(RobotState.wbc_dq_final);
                 RobotState.motors_tor_des = eigen2std(RobotState.wbc_tauJointRes);
