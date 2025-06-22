@@ -189,7 +189,11 @@ void Pin_KinDyn::computeJ_dJ()
     hip_link_rot = data_biped.oMi[waist_yaw_joint].rotation();
     Jcom = data_biped.Jcom;
 
-    Eigen::MatrixXd Mpj; // transform into world frame, and accept dq that in world frame
+    // 这里的J_l是在LOCAL_WORLD_ALIGNED（和世界坐标系对齐的local坐标系）下的，可以理解为local坐标系，只能接受local坐标系下的dq
+    // 但是实际上dq前六项更习惯为世界坐标系，base_rot是local到world旋转矩阵，其转置就是world到local，所以Mpj的作用就是从world到local转化矩阵
+    // J_l * dq(local) = J_l * Mpj * dq(world) = new_J_l * dq(world)
+    // 也可以理解为将J_l从local转化到了world
+    Eigen::MatrixXd Mpj;
     Mpj = Eigen::MatrixXd::Identity(model_nv, model_nv);
     Mpj.block(0, 0, 3, 3) = base_rot.transpose();
     Mpj.block(3, 3, 3, 3) = base_rot.transpose();
@@ -333,10 +337,12 @@ Pin_KinDyn::IkRes
 Pin_KinDyn::computeInK_Leg(const Eigen::Matrix3d &Rdes_L, const Eigen::Vector3d &Pdes_L, const Eigen::Matrix3d &Rdes_R,
                            const Eigen::Vector3d &Pdes_R)
 {
+    // 目标位姿
     const pinocchio::SE3 oMdesL(Rdes_L, Pdes_L);
     const pinocchio::SE3 oMdesR(Rdes_R, Pdes_R);
     // arm-l: 0-6, arm-r: 7-13, head: 14,15 waist: 16-18, leg-l: 19-24, leg-r: 25-30
-    Eigen::VectorXd qIk = Eigen::VectorXd::Zero(model_biped_fixed.nv); // initial guess
+    Eigen::VectorXd qIk = Eigen::VectorXd::Zero(model_biped_fixed.nv); 
+    // 通过手动设置部分关节值（如腿关节）加速收敛
     qIk[22] = -0.1;
     qIk[28] = -0.1;
 
@@ -360,9 +366,12 @@ Pin_KinDyn::computeInK_Leg(const Eigen::Matrix3d &Rdes_L, const Eigen::Vector3d 
     J_Idx_l = l_ankle_joint_fixed;
     J_Idx_r = r_ankle_joint_fixed;
     int itr_count{0};
+    // 迭代求解，直到机器人的位姿和期望位姿之间误差收敛
     for (itr_count = 0;; itr_count++)
     {
+        // 前向运动学：计算机器人当前位姿
         pinocchio::forwardKinematics(model_biped_fixed, data_biped_fixed, qIk);
+        // 计算当前脚踝位姿与目标位姿的误差
         const pinocchio::SE3 iMdL = data_biped_fixed.oMi[J_Idx_l].actInv(oMdesL);
         const pinocchio::SE3 iMdR = data_biped_fixed.oMi[J_Idx_r].actInv(oMdesR);
         errL = pinocchio::log6(iMdL).toVector(); // in joint frame
@@ -379,10 +388,12 @@ Pin_KinDyn::computeInK_Leg(const Eigen::Matrix3d &Rdes_L, const Eigen::Vector3d 
             success = false;
             break;
         }
-
+        
+        // 计算雅可比矩阵（关节空间到任务空间的映射）
         pinocchio::computeJointJacobian(model_biped_fixed, data_biped_fixed, qIk, J_Idx_l, JL); // JL in joint frame
         pinocchio::computeJointJacobian(model_biped_fixed, data_biped_fixed, qIk, J_Idx_r, JR); // JR in joint frame
         Eigen::MatrixXd W;
+
         W = Eigen::MatrixXd::Identity(model_biped_fixed.nv, model_biped_fixed.nv); // weighted matrix
         // arm-l: 0-6, arm-r: 7-13, head: 14,15 waist: 16-18, leg-l: 19-24, leg-r: 25-30
         //        W(16,16)=0.001;  // use a smaller value to make the solver try not to use waist joint
@@ -390,6 +401,8 @@ Pin_KinDyn::computeInK_Leg(const Eigen::Matrix3d &Rdes_L, const Eigen::Vector3d 
         //        W(18,18)=0.001;
         JL.block(0, 16, 6, 3).setZero();
         JR.block(0, 16, 6, 3).setZero();
+
+        // 利用误差对雅可比矩阵进行修正（考虑李群到李代数的映射）
         pinocchio::Data::Matrix6 JlogL;
         pinocchio::Data::Matrix6 JlogR;
         pinocchio::Jlog6(iMdL.inverse(), JlogL);
@@ -398,11 +411,14 @@ Pin_KinDyn::computeInK_Leg(const Eigen::Matrix3d &Rdes_L, const Eigen::Vector3d 
         JR = -JlogR * JR;
         JCompact.block(0, 0, 6, model_biped_fixed.nv) = JL;
         JCompact.block(6, 0, 6, model_biped_fixed.nv) = JR;
+
+        // 阻尼最小二乘法求解关节速度
         // pinocchio::Data::Matrix6 JJt;
         Eigen::Matrix<double, 12, 12> JJt;
         JJt.noalias() = JCompact * W * JCompact.transpose();
         JJt.diagonal().array() += damp;
         v.noalias() = -W * JCompact.transpose() * JJt.ldlt().solve(errCompact);
+        // 更新关节角度
         qIk = pinocchio::integrate(model_biped_fixed, qIk, v * DT);
     }
 

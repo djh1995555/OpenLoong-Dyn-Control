@@ -203,7 +203,7 @@ struct DataBus
     {
         base_omega_W << baseAngVel[0], baseAngVel[1], baseAngVel[2];
         auto Rcur = eul2Rot(rpy[0], rpy[1], rpy[2]);
-        base_omega_W = Rcur * base_omega_W;
+        // base_omega_W = Rcur * base_omega_W;
 
         //  q = [global_base_position, global_base_quaternion, joint_positions]
         //  dq = [global_base_velocity_linear, global_base_velocity_angular, joint_velocities]

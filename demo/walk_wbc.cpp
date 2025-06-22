@@ -99,8 +99,11 @@ int main(int argc, const char** argv)
 
     Eigen::Vector<double, 7> hd_l_des{0.475, -1.12, 1.9, 0.86, -0.356, 0, 0};
     Eigen::Vector<double, 7> hd_r_des{-0.475, -1.12, -1.9, 0.86, 0.356, 0, 0};
+    // 迭代求解，直到机器人的位姿和期望位姿之间误差收敛，最终得到对应的关节位置，这里用的是固定基模型，所以resLeg.jointPosRes里面只有关节位置，没有base
+    // // arm-l: 0-6, arm-r: 7-13, head: 14,15 waist: 16-18, leg-l: 19-24, leg-r: 25-30
     auto resLeg=kinDynSolver.computeInK_Leg(fe_l_rot_des,fe_l_pos_L_des,fe_r_rot_des,fe_r_pos_L_des);
     Eigen::VectorXd qIniDes=Eigen::VectorXd::Zero(mj_model->nq,1);
+    // qIniDes还是浮动基的q，所以前7个还是basePos和四元数
     qIniDes.block(7, 0, mj_model->nq - 7, 1) = resLeg.jointPosRes;
     qIniDes.block(7, 0, 7, 1) = hd_l_des;
     qIniDes.block(14, 0, 7, 1) = hd_r_des;
