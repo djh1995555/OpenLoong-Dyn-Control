@@ -6,11 +6,14 @@ Feel free to use in any purpose, and cite OpenLoong-Dynamics-Control in any styl
  <web@openloong.org.cn>
 */
 #include "data_logger.h"
+#include <filesystem>
+namespace fs = std::filesystem;
 
 DataLogger::DataLogger(std::string fileNameIn) {
     filePath=fileNameIn;
     size_t lastSlashPos = filePath.find_last_of('/');
     fileFolder=filePath.substr(0, lastSlashPos);
+    bool created = fs::create_directory(fileFolder);
     fileName=filePath.substr(lastSlashPos + 1);
     file_handler = quill::file_handler(filePath, "w");
     file_handler->set_pattern(QUILL_STRING("%(message)")); // timestamp's timezone
@@ -32,19 +35,36 @@ void DataLogger::addIterm(const std::string &name, const int &len) {
     colCout+=len;
 }
 
+// void DataLogger::finishItermAdding() {
+//     std::string insFileName=fileFolder+"/matlabReadDataScript.txt";
+//     std::ofstream outFile(insFileName);
+
+//     if (outFile.is_open()) {
+//         outFile << "clear variables; close all" << std::endl;
+//         outFile << "dataRec=load('" << fileName << "');" << std::endl;
+//         for (size_t i = 0; i < recItemName.size(); ++i) {
+//             outFile << recItemName[i] << "=dataRec(:,"<<recItemStartCol[i]+1<<":"<<recItemEndCol[i]+1<<");"<<std::endl;
+//         }
+//         outFile.close();
+//     } else {
+//         std::cerr << "unable to open matlabReadDataScript.txt\n";
+//     }
+//     recValue.resize(colCout,0.0);
+//     isItemDataIn.resize(recItemName.size(), false);
+// }
+
 void DataLogger::finishItermAdding() {
-    std::string insFileName=fileFolder+"/matlabReadDataScript.txt";
+    std::string insFileName=fileFolder+"/data_names.csv";
     std::ofstream outFile(insFileName);
 
     if (outFile.is_open()) {
-        outFile << "clear variables; close all" << std::endl;
-        outFile << "dataRec=load('" << fileName << "');" << std::endl;
+        outFile << "data_name,start_col_id,end_col_id" << std::endl;
         for (size_t i = 0; i < recItemName.size(); ++i) {
-            outFile << recItemName[i] << "=dataRec(:,"<<recItemStartCol[i]+1<<":"<<recItemEndCol[i]+1<<");"<<std::endl;
+            outFile << recItemName[i] << ","<<recItemStartCol[i]+1<<","<<recItemEndCol[i]+1<<std::endl;
         }
         outFile.close();
     } else {
-        std::cerr << "unable to open matlabReadDataScript.txt\n";
+        std::cerr << "unable to open data_names.csv\n";
     }
     recValue.resize(colCout,0.0);
     isItemDataIn.resize(recItemName.size(), false);

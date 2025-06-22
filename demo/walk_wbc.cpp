@@ -20,6 +20,30 @@ Feel free to use in any purpose, and cite OpenLoong-Dynamics-Control in any styl
 #include "foot_placement.h"
 #include "joystick_interpreter.h"
 #include "StateEst.h"
+#include <chrono>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
+
+std::string getCurrentTimeString() {
+    auto now = std::chrono::system_clock::now();
+    auto time = std::chrono::system_clock::to_time_t(now);
+    
+    std::tm local_time;
+    localtime_r(&time, &local_time);  // Linux/macOS（线程安全）
+    // localtime_s(&local_time, &time);  // Windows（线程安全）
+
+    std::ostringstream oss;
+    oss << std::setfill('0')
+        << local_time.tm_year + 1900 << "_"
+        << std::setw(2) << local_time.tm_mon + 1 << "_"
+        << std::setw(2) << local_time.tm_mday << "_"
+        << std::setw(2) << local_time.tm_hour << "_"
+        << std::setw(2) << local_time.tm_min << "_"
+        << std::setw(2) << local_time.tm_sec;
+
+    return oss.str();
+}
 
 // MuJoCo load and compile model
 char error[1000] = "Could not load binary model";
@@ -30,6 +54,7 @@ mjData* mj_data = mj_makeData(mj_model);
 // main function
 int main(int argc, const char** argv)
 {
+    std::string timeStr = getCurrentTimeString();
     // ini classes
     UIctr uiController(mj_model,mj_data);   // UI control for Mujoco
     MJ_Interface mj_interface(mj_model, mj_data); // data interface for Mujoco
@@ -40,7 +65,8 @@ int main(int argc, const char** argv)
     PVT_Ctr pvtCtr(mj_model->opt.timestep,"../common/joint_ctrl_config.json");// PVT joint control
     FootPlacement footPlacement; // foot-placement planner
     JoyStickInterpreter jsInterp(mj_model->opt.timestep); // desired baselink velocity generator
-    DataLogger logger("../record/datalog.log"); // data logger
+    std::string log_filepath = "../record/" + timeStr + "/data.csv";
+    DataLogger logger(log_filepath); // data logger
     StateEst StateModule(mj_model->opt.timestep);
 
     // variables ini
